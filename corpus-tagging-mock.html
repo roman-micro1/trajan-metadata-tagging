@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Corpus tagging (mock)</title>
+    <style>
+      :root {
+        --bg: #f5f4f1;
+        --surface: #fff;
+        --border: #e0dbd3;
+        --text: #1c1917;
+        --muted: #6b6560;
+        --accent: #1d4ed8;
+        --accent-soft: #dbeafe;
+        --success: #047857;
+        --radius: 8px;
+        --font: system-ui, -apple-system, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: var(--font); color: var(--text); background: var(--bg); }
+      header {
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
+        padding: 0.85rem 1.25rem; background: var(--surface); border-bottom: 1px solid var(--border);
+      }
+      header h1 { margin: 0; font-size: 1.05rem; }
+      header p { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--muted); }
+      .stats { font-size: 0.8rem; color: var(--muted); }
+      input, select, textarea, button { font: inherit; }
+      .expert input { border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; }
+      .layout { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 56px); }
+      .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 0.85rem; overflow: auto; }
+      .sidebar h2 { margin: 0 0 0.6rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      .chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.75rem; }
+      .chip { border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0.2rem 0.55rem; font-size: 0.72rem; cursor: pointer; }
+      .chip.on { background: var(--accent-soft); color: var(--accent); border-color: #93c5fd; }
+      .task { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.7rem; margin-bottom: 0.5rem; cursor: pointer; background: var(--bg); }
+      .task.on { border-color: var(--accent); background: var(--surface); }
+      .task h3 { margin: 0; font-size: 0.88rem; }
+      .badge { display: inline-block; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: #ede9e3; color: var(--muted); margin-right: 0.25rem; margin-top: 0.35rem; }
+      .badge.claimed { background: #ffedd5; color: #b45309; }
+      .badge.mine { background: var(--accent-soft); color: var(--accent); }
+      .main { display: flex; flex-direction: column; min-width: 0; }
+      .empty { flex: 1; display: grid; place-items: center; color: var(--muted); padding: 2rem; text-align: center; }
+      .workspace { display: none; flex-direction: column; flex: 1; }
+      .workspace.show { display: flex; }
+      .toolbar { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border); }
+      .grid { display: grid; grid-template-columns: 240px 1fr 300px; flex: 1; min-height: 0; }
+      .docs { border-right: 1px solid var(--border); background: var(--surface); overflow: auto; }
+      .doc { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 0.8rem; }
+      .doc.on { background: var(--accent-soft); }
+      .doc small { display: block; color: var(--muted); font-size: 0.7rem; margin-top: 0.15rem; }
+      .preview { background: #44403c; color: #e7e5e4; overflow: auto; padding: 1rem; }
+      .preview-page { background: #fff; color: #1c1917; max-width: 520px; margin: 0 auto 1rem; padding: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.25); min-height: 200px; font-size: 0.82rem; line-height: 1.5; }
+      .preview-page h4 { margin: 0 0 0.5rem; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+      .meta { border-left: 1px solid var(--border); background: var(--surface); overflow: auto; padding: 0.85rem; }
+      .meta label { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0.65rem 0 0.25rem; }
+      .meta label:first-child { margin-top: 0; }
+      .meta input, .meta select, .meta textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.5rem; background: var(--bg); }
+      .meta textarea { min-height: 56px; resize: vertical; }
+      .meta .readonly { background: #f0eeeb; color: var(--muted); }
+      .btn { border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 0.4rem 0.75rem; cursor: pointer; font-size: 0.82rem; }
+      .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .btn + .btn { margin-left: 0.35rem; }
+      .hint { font-size: 0.72rem; color: var(--muted); margin-top: 0.75rem; line-height: 1.4; }
+      @media (max-width: 900px) {
+        .layout { grid-template-columns: 1fr; }
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Corpus metadata tagging</h1>
+        <p>Static HTML mock · fields per tag_docs/README.md</p>
+      </div>
+      <div class="stats" id="stats"></div>
+      <label class="expert">Expert <input id="expertName" type="text" placeholder="Your name" /></label>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>Deal clusters (tasks)</h2>
+        <div class="chips" id="filters"></div>
+        <div id="taskList"></div>
+      </aside>
+      <main class="main">
+        <section class="empty" id="emptyState">
+          <p>Select a deal cluster to claim and tag documents.</p>
+        </section>
+        <section class="workspace" id="workspace">
+          <div class="toolbar">
+            <div>
+              <strong id="clusterTitle"></strong>
+              <span id="claimLabel" style="font-size:0.8rem;color:var(--muted);margin-left:0.5rem"></span>
+            </div>
+            <div>
+              <button type="button" class="btn primary" id="claimBtn">Claim task</button>
+              <button type="button" class="btn" id="releaseBtn" style="display:none">Release</button>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="docs" id="docList"></div>
+            <div class="preview" id="preview"></div>
+            <form class="meta" id="metaForm" onsubmit="return false">
+              <p style="margin:0;font-size:0.85rem;font-weight:600">Metadata tags</p>
+              <p class="hint">Schema from <code>tag_docs/README.md</code>. Model suggestions shown; expert can override.</p>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const DOC_TYPES = [
+        "10-K Annual Report", "10-Q Quarterly Report", "8-K Current Report", "6-K Foreign Issuer Report",
+        "20-F Annual Report", "Proxy Statement", "S-1 Registration Statement", "S-4 Registration Statement",
+        "Tax Filing", "Regulatory Filing", "Ownership Filing", "Security Filing",
+        "Corporate Record", "Court Filing", "Legislative Record", "Compliance Certificate",
+        "Employment Agreement", "Personnel Record", "Identity Document", "Non-Disclosure Agreement",
+        "Purchase Agreement", "Legal Opinion", "Settlement Agreement", "M&A Agreement", "Service / License Agreement",
+        "Credit Agreement", "Lease Agreement", "Insurance Policy", "Term Sheet", "Contract Amendment",
+        "Purchase Order", "Invoice", "Account Statement", "Bank Reconciliation", "Financial Statement", "Payroll Statement",
+        "Investor Communication", "Research Report", "Technical Report", "Investigative Report", "Valuation Report",
+        "Financial Model", "CIM / OM", "Investment Committee Memo", "Call Transcript", "Meeting Minutes",
+        "Correspondence", "Marketing Material",
+        "Intake Form", "Policy Manual", "Project Plan", "Real Estate / Property Record",
+        "Intellectual Property Record", "Clinical / Medical Record", "Other Document"
+      ];
+      const INDUSTRIES = [
+        "Energy", "Materials", "Industrials", "Consumer Discretionary", "Consumer Staples",
+        "Health Care", "Financials", "Information Technology", "Communication Services", "Utilities", "Real Estate"
+      ];
+      const TRANSACTION_TYPES = [
+        "Buyout", "Growth Equity", "Venture", "Secondaries", "Credit", "Merger",
+        "IPO", "Restructuring", "Real Estate", "Infrastructure", "N/A"
+      ];
+      const SOURCES = ["Internal", "Network", "Licensed Provider", "SEC EDGAR", "Public", "Other"];
+
+      const CLUSTER_NAMES = [
+        "VDR Project Louvre", "VDR Project Louvre 5", "LP-Large Cluster 12",
+        "LP-Large Cluster 10", "LP-Large Cluster 9", "Project Lattice (mock)"
+      ];
+      const COMPANIES = ["Volleo Padel Group Ltd", "Playtomic", "Project Lattice Inc", "Louvre Holdings", ""];
+      const DOC_NAMES = [
+        "Information_Memorandum.pdf", "Management_Presentation.pptx", "Financial_Model.xlsx",
+        "Legal_SPA_Draft.pdf", "DD_Report_Quality.pdf", "Call_Transcript_Mgmt.pdf",
+        "Barclays_Discussion_Materials.pdf", "Letter_of_Intent.pdf", "Term_Sheet_v2.pdf",
+        "Industry_Report_2024.pdf", "Cap_Table.xlsx", "NDA_Executed.pdf"
+      ];
+
+      function pick(arr, i) { return arr[i % arr.length]; }
+
+      function buildMockCorpus() {
+        const clusters = [];
+        let docIndex = 0;
+        for (let c = 0; c < CLUSTER_NAMES.length; c++) {
+          const docs = [];
+          const count = c < 4 ? 28 : 12;
+          for (let d = 0; d < count; d++) {
+            const fn = `${String(d + 1).padStart(2, "0")}_${pick(DOC_NAMES, docIndex)}`;
+            docs.push({
+              doc_id: `cluster-${c}-doc-${d}`,
+              filename: fn,
+              model: {
+                filename: fn,
+                doc_type: pick(DOC_TYPES, docIndex + c),
+                company: pick(COMPANIES, docIndex),
+                industry: pick(INDUSTRIES, docIndex + d),
+                issue_date: docIndex % 3 === 0 ? "" : `2024-${String((docIndex % 12) + 1).padStart(2, "0")}-15`,
+                transaction_date: docIndex % 5 === 0 ? "2024-03-01" : "",
+                transaction_type: pick(TRANSACTION_TYPES, docIndex),
+                source: pick(SOURCES, docIndex + c),
+                error: ""
+              }
+            });
+            docIndex++;
+          }
+          clusters.push({
+            cluster_id: `cluster-${c}`,
+            cluster_name: CLUSTER_NAMES[c],
+            documents: docs
+          });
+        }
+        return { clusters, document_count: docIndex };
+      }
+
+      const corpus = buildMockCorpus();
+      const state = { claims: {}, tags: {}, filter: "all" };
+      let selectedCluster = null;
+      let selectedDoc = null;
+
+      function expert() { return document.getElementById("expertName").value.trim(); }
+
+      function renderFilters() {
+        const filters = [
+          ["all", "All"], ["unclaimed", "Unclaimed"], ["mine", "Mine"], ["claimed", "Claimed"]
+        ];
+        document.getElementById("filters").innerHTML = filters.map(([k, l]) =>
+          `<button type="button" class="chip${state.filter === k ? " on" : ""}" data-f="${k}">${l}</button>`
+        ).join("");
+        document.querySelectorAll(".chip").forEach(el => {
+          el.onclick = () => { state.filter = el.dataset.f; renderTasks(); renderFilters(); };
+        });
+      }
+
+      function isClaimed(id) { return state.claims[id]?.expert; }
+      function isMine(id) { return state.claims[id]?.expert === expert() && expert(); }
+
+      function renderTasks() {
+        const name = expert();
+        const html = corpus.clusters.filter(cl => {
+          if (state.filter === "unclaimed") return !isClaimed(cl.cluster_id);
+          if (state.filter === "mine") return isMine(cl.cluster_id);
+          if (state.filter === "claimed") return isClaimed(cl.cluster_id);
+          return true;
+        }).map(cl => {
+          const claim = state.claims[cl.cluster_id];
+          const tagged = cl.documents.filter(d => state.tags[d.doc_id]?.saved).length;
+          const claimBadge = claim
+            ? `<span class="badge ${claim.expert === name && name ? "mine" : "claimed"}">${claim.expert}</span>` : "";
+          return `<div class="task${selectedCluster === cl.cluster_id ? " on" : ""}" data-id="${cl.cluster_id}">
+            <h3>${cl.cluster_name}</h3>
+            <span class="badge">${cl.documents.length} docs</span>${claimBadge}
+            <span class="badge">${tagged}/${cl.documents.length} tagged</span>
+          </div>`;
+        }).join("");
+        document.getElementById("taskList").innerHTML = html || "<p style='color:var(--muted);font-size:0.8rem'>No matches</p>";
+        document.querySelectorAll(".task").forEach(el => {
+          el.onclick = () => selectCluster(el.dataset.id);
+        });
+        document.getElementById("stats").textContent =
+          `${corpus.document_count} docs · ${corpus.clusters.length} clusters (mock)`;
+      }
+
+      function selectCluster(id) {
+        selectedCluster = id;
+        selectedDoc = null;
+        const cl = corpus.clusters.find(c => c.cluster_id === id);
+        document.getElementById("emptyState").style.display = "none";
+        document.getElementById("workspace").classList.add("show");
+        document.getElementById("clusterTitle").textContent = cl.cluster_name;
+        updateClaimUi();
+        renderDocs();
+        document.getElementById("preview").innerHTML = "<p style='text-align:center;color:#a8a29e'>Select a document</p>";
+        renderMeta(null);
+        renderTasks();
+      }
+
+      function updateClaimUi() {
+        const claim = state.claims[selectedCluster];
+        document.getElementById("claimLabel").textContent = claim ? `Claimed by ${claim.expert}` : "Unclaimed";
+        const mine = claim && claim.expert === expert();
+        document.getElementById("claimBtn").style.display = !claim ? "inline-block" : "none";
+        document.getElementById("releaseBtn").style.display = mine ? "inline-block" : "none";
+        document.getElementById("claimBtn").disabled = !expert();
+      }
+
+      function renderDocs() {
+        const cl = corpus.clusters.find(c => c.cluster_id === selectedCluster);
+        document.getElementById("docList").innerHTML = cl.documents.map(d => {
+          const saved = state.tags[d.doc_id]?.saved ? " ✓" : "";
+          return `<div class="doc${selectedDoc === d.doc_id ? " on" : ""}" data-id="${d.doc_id}">
+            ${d.filename}${saved}<small>${d.model.doc_type}</small>
+          </div>`;
+        }).join("");
+        document.querySelectorAll(".doc").forEach(el => {
+          el.onclick = () => selectDoc(el.dataset.id);
+        });
+      }
+
+      function fakePreview(doc) {
+        const pages = [1, 2, 3].map(n => `
+          <div class="preview-page">
+            <h4>Page ${n} (mock preview)</h4>
+            <p><strong>${doc.filename}</strong></p>
+            <p>${doc.model.company || "—"} · ${doc.model.doc_type}</p>
+            <p>Lorem ipsum stand-in for document body. In production, PDF.js would render the first few pages of the real file.</p>
+          </div>`).join("");
+        document.getElementById("preview").innerHTML = pages;
+      }
+
+      function selectDoc(docId) {
+        selectedDoc = docId;
+        const cl = corpus.clusters.find(c => c.cluster_id === selectedCluster);
+        const doc = cl.documents.find(d => d.doc_id === docId);
+        renderDocs();
+        fakePreview(doc);
+        renderMeta(doc);
+      }
+
+      function opt(values, current, allowEmpty) {
+        const blank = allowEmpty ? `<option value="">—</option>` : "";
+        return blank + values.map(v =>
+          `<option value="${v.replace(/"/g, "&quot;")}"${v === current ? " selected" : ""}>${v}</option>`
+        ).join("");
+      }
+
+      function renderMeta(doc) {
+        const form = document.getElementById("metaForm");
+        const base = `<p style="margin:0;font-size:0.85rem;font-weight:600">Metadata tags</p>
+          <p class="hint">Schema from <code>tag_docs/README.md</code>. Model suggestions shown; expert can override.</p>`;
+        if (!doc) {
+          form.innerHTML = base + "<p class='hint'>Select a document.</p>";
+          return;
+        }
+        const saved = state.tags[doc.doc_id] || {};
+        const m = { ...doc.model, ...saved.fields };
+        form.innerHTML = base + `
+          <label>filename</label>
+          <input class="readonly" readonly value="${m.filename}" />
+          <label>doc_type</label>
+          <select id="f_doc_type">${opt(DOC_TYPES, m.doc_type, false)}</select>
+          <label>company</label>
+          <input id="f_company" value="${m.company || ""}" placeholder="Subject company or empty" />
+          <label>industry (GICS Level 1)</label>
+          <select id="f_industry">${opt(INDUSTRIES, m.industry, false)}</select>
+          <label>issue_date (YYYY-MM-DD)</label>
+          <input id="f_issue_date" value="${m.issue_date || ""}" placeholder="YYYY-MM-DD or empty" />
+          <label>transaction_date</label>
+          <input id="f_transaction_date" value="${m.transaction_date || ""}" placeholder="YYYY-MM-DD or empty" />
+          <label>transaction_type</label>
+          <select id="f_transaction_type">${opt(TRANSACTION_TYPES, m.transaction_type, false)}</select>
+          <label>source</label>
+          <select id="f_source">${opt(SOURCES, m.source, false)}</select>
+          <label>error (read-only)</label>
+          <input class="readonly" readonly value="${m.error || ""}" />
+          <p style="margin-top:0.85rem">
+            <button type="button" class="btn primary" id="saveBtn">Save tags</button>
+          </p>`;
+        document.getElementById("saveBtn").onclick = () => {
+          state.tags[doc.doc_id] = {
+            saved: true,
+            fields: {
+              filename: m.filename,
+              doc_type: document.getElementById("f_doc_type").value,
+              company: document.getElementById("f_company").value.trim(),
+              industry: document.getElementById("f_industry").value,
+              issue_date: document.getElementById("f_issue_date").value.trim(),
+              transaction_date: document.getElementById("f_transaction_date").value.trim(),
+              transaction_type: document.getElementById("f_transaction_type").value,
+              source: document.getElementById("f_source").value,
+              error: ""
+            }
+          };
+          renderDocs();
+          renderTasks();
+        };
+      }
+
+      document.getElementById("claimBtn").onclick = () => {
+        if (!expert() || !selectedCluster) return;
+        state.claims[selectedCluster] = { expert: expert() };
+        updateClaimUi();
+        renderTasks();
+      };
+      document.getElementById("releaseBtn").onclick = () => {
+        delete state.claims[selectedCluster];
+        updateClaimUi();
+        renderTasks();
+      };
+      document.getElementById("expertName").oninput = () => updateClaimUi();
+
+      renderFilters();
+      renderTasks();
+    </script>
+  </body>
+</html>
